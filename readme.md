@@ -25,16 +25,14 @@
 | 12    | RS485:GND | RS485 GND |
 
 ## Build
-- ESP-IDF v5.4
-
+- [x] Arduino framework with Heltec library
+- ESP IDF does not work with wireless module
+- 
 ## Flash
 - Download mode: hold rst button and power cycle board
 - Flash with USB->RS485 converter 
 - Baud rate 115200
 
-
-## RF nastaveni
-
-## VYPRACANOU LICENCI POTREBA NA FUNKCI
-AT+CDKEY=AF740AB4CE5614B2E82176C4D049AE98
-AT+CDKEY=BF0BEA92E253249548056A7FEC4B74E0
+## Settings
+- Defines at the beggining of relay.ino file
+- TODO: Implement dynamic settings throuh serial using +AT commands
