@@ -3,6 +3,16 @@ dependencies:
     source:
       type: idf
     version: 5.4.0
+  jgromes/radioboards:
+    component_hash: 8c4320754261f6ffb6bea6efb7eddd177f8595d4abab201dff2defdef11099f4
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.1'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 0.0.1
   jgromes/radiolib:
     component_hash: 833daf5c5dc74c7b5c26e93310af114f978e7002803b2a8a0cd8d78820e06b39
     dependencies:
@@ -15,7 +25,8 @@ dependencies:
     version: 7.1.2
 direct_dependencies:
 - idf
+- jgromes/radioboards
 - jgromes/radiolib
-manifest_hash: cd3f494e341dac1d6315e673bac25113d0bee58daf668c2cbdf736b4fb623f33
+manifest_hash: cfd735a5857b201d273d4ee18451b8e0aaf8fbaddae687c6405189e265cb1364
 target: esp32c3
 version: 2.0.0

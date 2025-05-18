@@ -369,7 +369,9 @@ int16_t Module::SPItransferStream(const uint8_t* cmd, uint8_t cmdLen, bool write
   // do the transfer
   this->hal->spiBeginTransaction();
   this->hal->digitalWrite(this->csPin, this->hal->GpioLevelLow);
+  this->hal->delayMicroseconds(1);
   this->hal->spiTransfer(buffOut, buffLen, buffIn);
+  this->hal->delayMicroseconds(1);
   this->hal->digitalWrite(this->csPin, this->hal->GpioLevelHigh);
   this->hal->spiEndTransaction();
 
@@ -399,7 +401,7 @@ int16_t Module::SPItransferStream(const uint8_t* cmd, uint8_t cmdLen, bool write
   if((this->spiConfig.parseStatusCb != nullptr) && (numBytes > 0)) {
     state = this->spiConfig.parseStatusCb(buffIn[this->spiConfig.statusPos]);
   }
-  
+  printf("\tSPI TRANSFER STATUS: %d\n", state);
   // copy the data
   if(!write) {
     // skip the status bytes if present

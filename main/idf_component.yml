@@ -16,3 +16,4 @@ dependencies:
   #   public: true
 
   jgromes/radiolib: ^7.1.2
+  jgromes/radioboards: ^0.0.1
