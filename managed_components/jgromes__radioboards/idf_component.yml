@@ -1,0 +1,9 @@
+dependencies:
+  idf:
+    version: '>=4.1'
+description: Crowd-sourced database of pinouts for sub-GHz radio module boards from
+  various vendors, such as Heltec, LilyGo, SeeedStudio etc.
+license: MIT
+repository: https://github.com/radiolib-org/RadioBoards.git
+url: https://github.com/radiolib-org/RadioBoards
+version: 0.0.1

@@ -150,9 +150,9 @@ public:
   void init() override
   {
     // we only need to init the SPI here
-    spiBegin();
-    // Init pins pullups
-
+    if (!initialized)
+      spiBegin();
+    initialized = true;
   }
 
   void term() override
@@ -172,7 +172,7 @@ public:
 
     gpio_hal_context_t gpiohal;
     gpiohal.dev = GPIO_LL_GET_HW(GPIO_PORT_0);
-    
+
     gpio_config_t conf = {
         .pin_bit_mask = (1ULL << pin),
         .mode = (gpio_mode_t)mode,
@@ -181,7 +181,6 @@ public:
         .intr_type = (gpio_int_type_t)gpiohal.dev->pin[pin].int_type,
     };
     gpio_config(&conf);
-
   }
 
   void pinSetPullup(uint32_t pin) override
@@ -299,19 +298,40 @@ public:
 
   void spiBegin()
   {
+
     spi_bus_config_t buscfg = {
         .mosi_io_num = spiMOSI,
         .miso_io_num = spiMISO,
         .sclk_io_num = spiSCK,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = 0};
+        .data4_io_num = -1,
+        .data5_io_num = -1,
+        .data6_io_num = -1,
+        .data7_io_num = -1,
+        .data_io_default_level = 0,
+        .max_transfer_sz = 256, // or whatever your maximum packet size is
+        .flags = SPICOMMON_BUSFLAG_MASTER | SPICOMMON_BUSFLAG_GPIO_PINS |
+                 SPICOMMON_BUSFLAG_MISO | SPICOMMON_BUSFLAG_MOSI | SPICOMMON_BUSFLAG_SCLK,
+        .isr_cpu_id = ESP_INTR_CPU_AFFINITY_AUTO,
+        .intr_flags = 0};
 
     spi_device_interface_config_t devcfg = {
-        .mode = 0,                         // SPI Mode 0
-        .clock_speed_hz = 2 * 1000 * 1000, // 2 MHz
-        .spics_io_num = -1,                // manual CS handling
+        .command_bits = 8,
+        .address_bits = 16,
+        .dummy_bits = 0,
+        .mode = 0, // SPI Mode 0
+        .clock_source = SPI_CLK_SRC_DEFAULT,
+        .duty_cycle_pos = 128,
+        .cs_ena_pretrans = 0,
+        .cs_ena_posttrans = 0,
+        .clock_speed_hz = 1 * 1000 * 1000, // 1 MHz
+        .input_delay_ns = 0,
+        .spics_io_num = -1, // Manual CS
+        .flags = 0,
         .queue_size = 1,
+        .pre_cb = NULL,
+        .post_cb = NULL,
     };
 
     esp_err_t ret = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
@@ -345,9 +365,10 @@ public:
     t.tx_buffer = &b;
     t.rx_buffer = &rx;
     esp_err_t ret = spi_device_transmit(spi, &t);
-    if (ret != ESP_OK) {
-        ESP_LOGE("HAL", "[SPI] Transfer failed: %s", esp_err_to_name(ret));
-        return 0xFF;
+    if (ret != ESP_OK)
+    {
+      ESP_LOGE("HAL", "[SPI] Transfer failed: %s", esp_err_to_name(ret));
+      return 0xFF;
     }
     return rx;
   }
@@ -359,8 +380,9 @@ public:
     t.tx_buffer = out;
     t.rx_buffer = in;
     esp_err_t ret = spi_device_transmit(spi, &t);
-    if (ret != ESP_OK) {
-        ESP_LOGE("HAL", "[SPI] Multi-byte transfer failed: %s", esp_err_to_name(ret));
+    if (ret != ESP_OK)
+    {
+      ESP_LOGE("HAL", "[SPI] Multi-byte transfer failed: %s", esp_err_to_name(ret));
     }
     ESP_LOGI("HAL", "[SPI] Transfered %d bytes", len);
   }
@@ -382,6 +404,7 @@ private:
   int8_t spiMISO;
   int8_t spiMOSI;
   int8_t spiCS;
+  uint8_t initialized = false;
   spi_device_handle_t spi = NULL;
 };
 
