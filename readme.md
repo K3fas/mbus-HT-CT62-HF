@@ -36,3 +36,17 @@
 ## Settings
 - Defines at the beggining of relay.ino file
 - TODO: Implement dynamic settings throuh serial using +AT commands
+- TODO: Implement send size larger than 255 bytes
+
+## Limitations
+- Maximum message size is 255 bytes.
+- Sending data is best effort meaning no checks are performed if transmission happened.
+- Nodes are as simple transcievers, no mesh setting is implemented.
+- Simultanious transmissions are not avoidable cuz LSB is not atomic operation.
+
+## AT Commands
+| Command         | Action                    | Input  |
+| --------------- | ------------------------- |--------|
+| `AT`            | Ping – returns `OK`       | None    |
+| `AT+VERSION?`   | Get firmware version      | None    |
+| `AT+SETDEBUG=X` | Enable debug output       | 0-1     |
