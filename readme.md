@@ -45,8 +45,21 @@
 - Simultanious transmissions are not avoidable cuz LSB is not atomic operation.
 
 ## AT Commands
-| Command         | Action                    | Input  |
-| --------------- | ------------------------- |--------|
-| `AT`            | Ping – returns `OK`       | None    |
-| `AT+VERSION?`   | Get firmware version      | None    |
-| `AT+SETDEBUG=X` | Enable debug output       | 0-1     |
+# Available AT Commands
+
+| Command                | Description                             | Parameters                 | Valid Range / Notes             |
+|------------------------|---------------------------------------|----------------------------|--------------------------------|
+| `AT`                   | Ping device                           | None                      | Responds with `OK`              |
+| `AT+VERSION`           | Get firmware version                  | None                      | Example response: `VERSION:1.0.0` |
+| `AT+SETDEBUG=<0|1>`    | Enable or disable debug output        | 0 = off, 1 = on            |                                |
+| `AT+SETRF=<frequency>` | Set RF frequency (Hz)                 | Integer                   | 863000000 to 870000000          |
+| `AT+SETTXPWR=<power>`  | Set transmit power (dBm)              | Integer                   | 2 to 22 dBm                    |
+| `AT+SETSF=<sf>`         | Set LoRa spreading factor             | Integer                   | 6 to 12                       |
+| `AT+SETBW=<bw>`         | Set LoRa bandwidth index              | Integer                   | 0 to 2 (e.g., 0=125kHz, 1=250kHz, 2=500kHz) |
+| `AT+SETMODBUSBD=<baud>` | Set Modbus baud rate                  | Integer                   | 1200 to 115200                 |
+| `AT+SETMODBUSDELAY=<ms>`| Set Modbus read delay (milliseconds) | Integer                   | 1 to 1000                     |
+| `AT+SETMODBUSBUF=<size>`| Set Modbus buffer size                | Integer                   | 64 to 1024                    |
+| `AT+BEACON=<0|1>`       | Disable/Enable periodic beacon mode  | 0 = disable, 1 = enable    |                                |
+| `AT+BEACONINT=<ms>`     | Set beacon interval (milliseconds)   | Integer                   | 1000 to 60000 (1 sec to 60 sec) |
+
+
