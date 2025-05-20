@@ -51,7 +51,7 @@
 |------------------------|---------------------------------------|----------------------------|--------------------------------|
 | `AT`                   | Ping device                           | None                      | Responds with `OK`              |
 | `AT+VERSION`           | Get firmware version                  | None                      | Example response: `VERSION:1.0.0` |
-| `AT+SETDEBUG=<0|1>`    | Enable or disable debug output        | 0 = off, 1 = on            |                                |
+| `AT+SETDEBUG=<0/1>`    | Enable or disable debug output        | 0 = off, 1 = on            |                                |
 | `AT+SETRF=<frequency>` | Set RF frequency (Hz)                 | Integer                   | 863000000 to 870000000          |
 | `AT+SETTXPWR=<power>`  | Set transmit power (dBm)              | Integer                   | 2 to 22 dBm                    |
 | `AT+SETSF=<sf>`         | Set LoRa spreading factor             | Integer                   | 6 to 12                       |
@@ -59,7 +59,7 @@
 | `AT+SETMODBUSBD=<baud>` | Set Modbus baud rate                  | Integer                   | 1200 to 115200                 |
 | `AT+SETMODBUSDELAY=<ms>`| Set Modbus read delay (milliseconds) | Integer                   | 1 to 1000                     |
 | `AT+SETMODBUSBUF=<size>`| Set Modbus buffer size                | Integer                   | 64 to 1024                    |
-| `AT+BEACON=<0|1>`       | Disable/Enable periodic beacon mode  | 0 = disable, 1 = enable    |                                |
+| `AT+BEACON=<0/1>`       | Disable/Enable periodic beacon mode  | 0 = disable, 1 = enable    |                                |
 | `AT+BEACONINT=<ms>`     | Set beacon interval (milliseconds)   | Integer                   | 1000 to 60000 (1 sec to 60 sec) |
 
 
