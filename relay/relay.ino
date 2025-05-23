@@ -1,30 +1,7 @@
 #include "LoRaWan_APP.h"
 #include "Arduino.h"
+#include "settings.h"
 #include "command_parser.h"
-
-#define RF_FREQUENCY 865000000 // Hz
-#define TX_OUTPUT_POWER 20     // dBm
-#define LORA_BANDWIDTH 0       // 125 kHz
-#define LORA_SPREADING_FACTOR 7
-#define LORA_CODINGRATE 1
-#define LORA_PREAMBLE_LENGTH 8
-#define LORA_SYMBOL_TIMEOUT 0
-#define LORA_FIX_LENGTH_PAYLOAD_ON false
-#define LORA_IQ_INVERSION_ON false
-#define LORA_LBT_RSII -90 // Listen before talk threshold
-#define LORA_LBT_TIME 20  // Listen before talk time in ms
-#define LORA_LBT_RETRY 5  // Listen before talk retry count
-#define LORA_BUFFER 255
-
-#define RX_TIMEOUT_VALUE 1000
-
-// Modbus serial
-#define MODBUS_BD 9600
-#define MODBUS_READ_DELAY 5
-#define BUFFER_SIZE 512
-
-// Uncomment this to enable debug output
-// #define PRINT_DEBUG
 
 char txpacket[LORA_BUFFER];
 char rxpacket[LORA_BUFFER];
@@ -39,7 +16,7 @@ typedef enum
 } States_t;
 
 States_t state;
-bool sleepMode = false;
+volatile bool rxRecieved = false;
 bool dio_triggered = false;
 int16_t Rssi, rxSize;
 
@@ -57,16 +34,28 @@ void printfDebug(const char *fmt, ...)
   va_end(args);
 }
 
+void printHex(const char *label, const uint8_t *data, size_t len)
+{
+  Serial.print(label);
+  for (size_t i = 0; i < len; i++)
+  {
+    Serial.printf("%02X ", data[i]);
+  }
+  Serial.println();
+}
+
 void setup()
 {
-#ifdef PRINT_DEBUG
-  Serial.begin(115200); // Shared RS485 and debug line
-#else
-  Serial.begin(MODBUS_BD); // RS485 line only
-#endif
+  Serial.begin(115200, SERIAL_8N1);
+  Serial.setRxBufferSize(512);
+  Serial.setTxBufferSize(512);
   delay(2000); // Wait for serial to stabilize
-
-  printfDebug("[INIT] Starting LoRa RS485 bridge...");
+  
+  
+  printfDebug("[INIT] Starting LoRa RS485 bridge...\n");
+  loadConfig(); // Load LoRa config from NVS
+  printfDebug("[INIT] Loaded NVS");
+  Serial.updateBaudRate(config.modbus_baudrate);
 
   Mcu.begin(HELTEC_BOARD, SLOW_CLK_TPYE);
 
@@ -79,17 +68,35 @@ void setup()
   {
     Serial.printf("[ERROR] Radio Init failed! Code: %d\n", err);
   }
-  Radio.SetChannel(RF_FREQUENCY);
+  Radio.SetTxConfig(MODEM_LORA,
+                    config.tx_output_power,
+                    0, // frequency deviation (not used in LoRa)
+                    config.lora_bandwidth,
+                    config.lora_spreading_factor,
+                    config.lora_codingrate,
+                    config.lora_preamble_length,
+                    config.lora_fix_length_payload_on,
+                    true, // CRC on
+                    0,    // Freq hop
+                    0,    // Hop period
+                    config.lora_iq_inversion_on,
+                    config.tx_timeout);
+  Radio.SetRxConfig(MODEM_LORA,
+                    config.lora_bandwidth,
+                    config.lora_spreading_factor,
+                    config.lora_codingrate,
+                    0,
+                    config.lora_preamble_length,
+                    config.lora_symbol_timeout,
+                    config.lora_fix_length_payload_on,
+                    0,    // No fixed payload len
+                    true, // CRC on
+                    0,    // Freq hop
+                    0,    // Hop period
+                    config.lora_iq_inversion_on,
+                    true);
 
-  Radio.SetTxConfig(MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH,
-                    LORA_SPREADING_FACTOR, LORA_CODINGRATE,
-                    LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
-                    true, 0, 0, LORA_IQ_INVERSION_ON, 3000);
-
-  Radio.SetRxConfig(MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
-                    LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
-                    LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
-                    0, true, 0, 0, LORA_IQ_INVERSION_ON, true);
+  Radio.SetChannel(config.rf_frequency);
 
   state = STATE_TX;
 
@@ -97,9 +104,8 @@ void setup()
 }
 
 void loop()
-{
-
-  if (config.beaconEnabled && (millis() - config.lastBeaconMillis >= config.beaconIntervalMs))
+{  
+    if (config.beaconEnabled && (millis() - config.lastBeaconMillis >= config.beaconIntervalMs))
   {
     config.lastBeaconMillis = millis();
     String beaconMsg = "BEACON: Device alive at " + String(millis()) + " ms\n";
@@ -108,59 +114,81 @@ void loop()
     Radio.Send((uint8_t *)beaconMsg.c_str(), beaconMsg.length());
   }
 
+  // Trigger TX if new RS485 data available
+  if (Serial.available())
+  {
+    state = STATE_TX;
+  }
+  else if (rxRecieved == true)
+  {
+    // Send available data to serial
+    Serial.write((uint8_t *)rxpacket, rxSize);
+    memset(rxpacket, 0, sizeof(rxpacket));
+    rxRecieved = false;
+  }
+
   switch (state)
   {
   case STATE_TX:
   {
-    printfDebug("[FSM] STATE_TX: checking RS485 data...");
-
     // Read non terminated data from input serial
     unsigned long lastByteTime = millis();
     size_t len = 0;
-    while (millis() - lastByteTime < MODBUS_READ_DELAY && len < LORA_BUFFER - 1)
+    while (millis() - lastByteTime < config.modbus_read_delay && len < LORA_BUFFER - 1)
     {
       if (Serial.available())
       {
-        txpacket[len++] = Serial.read();
-        lastByteTime = millis();
+        int available = Serial.available();
+        int toRead = min(available, (int)(LORA_BUFFER - 1 - len));  // prevent overflow
+
+        int bytesRead = Serial.readBytes(txpacket + len, toRead);
+        len += bytesRead;
+        lastByteTime = millis();  // reset timer on data reception
       }
     }
     // Sent data or handle at command
     if (len > 0)
     {
+      if (config.print_debug)
+      {
+        printHex("[TX] Read serial:", (uint8_t*)txpacket, len);
+        printfDebug("MBSUDELAY: %d\n", config.modbus_read_delay);
+      }
       // Handle AT command
       if (len >= 3 && strncmp(txpacket, "AT+", 3) == 0)
       {
+        txpacket[len] = '\0';
         String cmd = String(txpacket);
+        printfDebug("Recieved AT command %s\n", cmd.c_str());
         cmd.trim();
         handleATCommand(cmd);
         memset(txpacket, 0, sizeof(txpacket));
+        state = STATE_RX;
         break;
       }
       // Handle data send
-      for (size_t i = 0; i < LORA_LBT_RETRY; i++)
+      for (size_t i = 0; i < config.lbt_retry; i++)
       {
         Radio.Standby();
-        if (Radio.IsChannelFree(MODEM_LORA, RF_FREQUENCY, LORA_LBT_RSII, LORA_LBT_TIME))
+        if (Radio.IsChannelFree(MODEM_LORA, config.rf_frequency, config.lbt_rssi_threshold, config.lbt_time))
         {
           Radio.Send((uint8_t *)txpacket, len);
-          printfDebug("[TX] LBT passed, sent packet.");
+          printfDebug("[TX] LBT passed, sent packet.\n");
 
           break;
         }
-        printfDebug("[TX] LBT failed, retrying...");
-        delay(100);
+        Rssi = Radio.Rssi(MODEM_LORA);
+        printfDebug("[TX] LBT failed, Rsii: %d, retrying...\n", Rssi);
+        delay(50);
       }
     }
 
-    printfDebug("[TX] RS485 over LoRa: ");
-    printfDebug("%s\n", txpacket);
     state = IDLE;
     break;
   }
 
   case STATE_RX:
-    printfDebug("[FSM] STATE_RX: enabling LoRa receive...");
+    printfDebug("[FSM] STATE_RX: enabling LoRa receive...\n");
     Radio.Rx(0);
     state = IDLE;
     break;
@@ -182,30 +210,35 @@ void loop()
 
 void OnTxDone(void)
 {
-  printfDebug("[ISR] TX done.");
+  printfDebug("[ISR] TX done.\n");
   memset(txpacket, 0, sizeof(txpacket));
   state = STATE_RX;
 }
 
 void OnTxTimeout(void)
 {
-  printfDebug("[ISR] TX timeout.");
+  printfDebug("[ISR] TX timeout.\n");
   state = STATE_RX;
 }
 
 void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr)
 {
-  memcpy(rxpacket, payload, size);
-  rxpacket[size] = '\0';
-  Rssi = rssi;
   rxSize = size;
+  Rssi = rssi;
+  
+  if(config.print_debug)
+  {
+    rxpacket[size] = '\0';
+    printfDebug("[RX] Received from LoRa: %s\n", rxpacket);
+    printfDebug("[RX] RSSI: %d\n", rssi);
+    printfDebug("[RX] SNR: %d\n", snr);
+    delay(100);
+  }
 
-  printfDebug("[RX] Received from LoRa: %s", rxpacket);
-  printfDebug("[RX] RSSI: %d", Rssi);
-
-  // Send to RS485 (Serial shared)
-  Serial.write((uint8_t *)rxpacket, rxSize);
-  memset(rxpacket, 0, sizeof(rxpacket));
-
-  state = STATE_RX;
+  memcpy(rxpacket, payload, size);
+  rxRecieved = true;
+  //Serial.write((uint8_t *)rxpacket, size);
+  //memset(rxpacket, 0, sizeof(rxpacket));
+  
+  state = STATE_TX;
 }

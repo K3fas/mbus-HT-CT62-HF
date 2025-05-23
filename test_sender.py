@@ -23,6 +23,13 @@ START_NUMBER = 1
 INTER_BYTE_TIMEOUT = 0.020  # 20 ms
 stop_flag = False
 
+from datetime import datetime
+
+def ts():
+    """Return current timestamp in ISO format with milliseconds."""
+    return f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}]"
+
+
 def build_message(counter):
     if args.long:
         base = f"[{args.id}] DATA [{counter:04d}] "
@@ -49,7 +56,7 @@ def format_modbus(frame):
     calc_crc = modbus_crc(frame[:-2])
     crc_ok = calc_crc == struct.unpack('<H', crc)[0]
 
-    return f"[MODBUS] Addr: {addr}, Func: 0x{func:02X}, Data: {binascii.hexlify(data).decode()}, CRC OK: {crc_ok}"
+    return f"Addr: {addr}, Func: 0x{func:02X}, Data: {binascii.hexlify(data).decode()}, CRC OK: {crc_ok}"
 
 def modbus_crc(data):
     crc = 0xFFFF
@@ -65,11 +72,11 @@ def modbus_crc(data):
 def process_frame(frame):
     output = []
     if 'ascii' in modes:
-        output.append(f"[ASCII ] {format_ascii(frame)}")
+        output.append(f"{ts()} [ASCII ] {format_ascii(frame)}")
     if 'hex' in modes:
-        output.append(f"[HEX   ] {format_hex(frame)}")
+        output.append(f"{ts()} [HEX   ] {format_hex(frame)}")
     if 'modbus' in modes:
-        output.append(f"[MODBUS] {format_modbus(frame)}")
+        output.append(f"{ts()} [MODBUS] {format_modbus(frame)}")
     return '\n'.join(output)
 
 def read_with_timeout(ser):
@@ -122,3 +129,5 @@ finally:
     if 'ser' in locals() and ser.is_open:
         ser.close()
         print("[CLOSED] Serial port closed.")
+
+
