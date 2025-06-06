@@ -1,6 +1,10 @@
 #pragma once
 
-#define BP_VERSION "V1.1.0"
+#define BP_VERSION "V1.1.1"
+
+#define RESET_INTERVAL_MS (12UL * 60UL * 60UL * 1000UL)
+
+
 
 /*
 * LoRa Default Settings
