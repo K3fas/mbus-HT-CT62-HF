@@ -2,6 +2,7 @@
 #include "Arduino.h"
 #include "settings.h"
 #include "command_parser.h"
+#include "esp_task_wdt.h"
 
 char txpacket[LORA_BUFFER];
 char rxpacket[LORA_BUFFER];
@@ -97,10 +98,24 @@ void setup() {
 
   state = STATE_TX;
 
+  // Adding HW watchdog
+  esp_task_wdt_config_t dog_cfg=
+  {
+    .timeout_ms = 10000,
+    .idle_core_mask = 0,
+    .trigger_panic = true,
+  };
+  esp_task_wdt_init(&dog_cfg);
+  esp_task_wdt_add(NULL);     // Add current task (loop task)
+
   Serial.println("[INIT] Radio initialized, entering TX mode...");
+  esp_task_wdt_reset();
 }
 
 void loop() {
+
+  Radio.IrqProcess();
+
   if (config.beaconEnabled && (millis() - config.lastBeaconMillis >= config.beaconIntervalMs)) {
     config.lastBeaconMillis = millis();
     String beaconMsg = "BEACON: Device alive at " + String(millis()) + " ms\n";
@@ -182,6 +197,7 @@ void loop() {
       break;
 
     default:
+      state = STATE_TX;
       break;
   }
 
@@ -195,6 +211,9 @@ void loop() {
     delay(100);  // optional: allow serial message to send
     ESP.restart();
   }
+
+  // Feed the dog
+  esp_task_wdt_reset();
 }
 
 void OnTxDone(void) {
