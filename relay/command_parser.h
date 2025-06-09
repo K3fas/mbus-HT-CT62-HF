@@ -76,7 +76,7 @@ typedef struct
     // Debug
     bool print_debug;
     bool beaconEnabled;
-    unsigned long beaconIntervalMs; // seconds
+    unsigned long beaconIntervalMs;
     unsigned long lastBeaconMillis;
 } device_config_t;
 
@@ -101,7 +101,7 @@ device_config_t config = {
 
     .print_debug = false,
     .beaconEnabled = false,
-    .beaconIntervalMs = 5000, // 5 seconds
+    .beaconIntervalMs = BEACON_INTERVAL_MS,
     .lastBeaconMillis = 0,
 };
 
@@ -131,7 +131,7 @@ void loadConfig()
 
     config.print_debug = prefs.getBool("debug", false);
     config.beaconEnabled = prefs.getBool("beacon", false);
-    config.beaconIntervalMs = prefs.getULong("beacon_int", 5000);
+    config.beaconIntervalMs = prefs.getULong("beacon_int", BEACON_INTERVAL_MS);
     config.lastBeaconMillis = 0; // Always reset on boot
 
     prefs.end();
@@ -158,7 +158,8 @@ void saveConfig()
     prefs.putULong("mb_bd", config.modbus_baudrate);
     prefs.putUShort("mb_delay", config.modbus_read_delay);
     prefs.putUShort("mb_buf", config.buffer_size);
-    // Do not store debug and beacon mode
+    // Do not store debug mode
+    prefs.putBool("beacon", config.beaconEnabled);
     prefs.putULong("beacon_int", config.beaconIntervalMs);
 
     prefs.end();
@@ -431,8 +432,8 @@ void handleATCommand(const String &cmd)
     else if (cmd.startsWith("AT+SETBEACONINT="))
     {
         unsigned long value = cmd.substring(strlen("AT+SETBEACONINT=")).toInt();
-        if (value >= 1000 && value <= 60000)
-        { // 1s to 60s
+        if (value >= 1000 && value <= 24*60*60*1000)
+        { // 1s to 24h
             config.beaconIntervalMs = value;
             Serial.println("OK");
         }

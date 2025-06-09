@@ -1,10 +1,10 @@
 #pragma once
 
-#define BP_VERSION "V1.1.1"
+#define BP_VERSION "V1.1.4"
 
 //#define RESET_INTERVAL_MS (12UL * 60UL * 60UL * 1000UL)
-#define RESET_INTERVAL_MS (10UL * 60UL * 1000UL)
-
+#define RESET_INTERVAL_MS (15UL * 60UL * 1000UL)
+#define BEACON_INTERVAL_MS (10UL * 60UL *1000UL)
 
 
 /*

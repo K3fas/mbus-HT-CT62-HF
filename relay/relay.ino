@@ -3,6 +3,10 @@
 #include "settings.h"
 #include "command_parser.h"
 #include "esp_task_wdt.h"
+#include "esp_system.h"
+#include "esp_mac.h"
+
+
 
 char txpacket[LORA_BUFFER];
 char rxpacket[LORA_BUFFER];
@@ -20,6 +24,8 @@ volatile bool rxRecieved = false;
 bool dio_triggered = false;
 int16_t Rssi, rxSize;
 unsigned long bootTime = 0;
+uint8_t mac[6];
+char macStr[18];
 
 void OnTxDone(void);
 void OnTxTimeout(void);
@@ -48,12 +54,14 @@ void setup() {
   Serial.setRxBufferSize(512);
   Serial.setTxBufferSize(512);
   Serial.begin(115200, SERIAL_8N1);
-  delay(2000);  // Wait for serial to stabilize
+  delay(500);
 
 
   printfDebug("[INIT] Starting LoRa RS485 bridge...\n");
   loadConfig();  // Load LoRa config from NVS
   printfDebug("[INIT] Loaded NVS");
+  Serial.printf("Setting baud rate %d bd\n", config.modbus_baudrate);
+  delay(500); 
   Serial.updateBaudRate(config.modbus_baudrate);
 
   Mcu.begin(HELTEC_BOARD, SLOW_CLK_TPYE);
@@ -108,8 +116,12 @@ void setup() {
   esp_task_wdt_init(&dog_cfg);
   esp_task_wdt_add(NULL);     // Add current task (loop task)
 
-  Serial.println("[INIT] Radio initialized, entering TX mode...");
-  esp_task_wdt_reset();
+  // Read and store MAC
+  esp_read_mac(mac, ESP_MAC_WIFI_STA); 
+  sprintf(macStr, MACSTR, MAC2STR(mac));
+
+  Serial.printf("[INIT] Radio initialized at %d bd, entering TX mode...\n", config.modbus_baudrate);
+  //esp_task_wdt_reset();
 }
 
 void loop() {
@@ -118,10 +130,9 @@ void loop() {
 
   if (config.beaconEnabled && (millis() - config.lastBeaconMillis >= config.beaconIntervalMs)) {
     config.lastBeaconMillis = millis();
-    String beaconMsg = "BEACON: Device alive at " + String(millis()) + " ms\n";
-
-    Serial.print(beaconMsg);
-    Radio.Send((uint8_t *)beaconMsg.c_str(), beaconMsg.length());
+    String beacon = "BEACON: Device [" + String(macStr) + "] alive at " + String(millis()) + " ms\n";
+    Serial.print(beacon);
+    Radio.Send((uint8_t *)beacon.c_str(), beacon.length());
   }
 
   // Trigger TX if new RS485 data available
@@ -207,7 +218,7 @@ void loop() {
   }
   // Reset the device after 12 hours
   if (millis() - bootTime >= RESET_INTERVAL_MS) {
-    Serial.println("[RESET] 12 hours passed. Restarting device...");
+    Serial.println("[RESET] Restarting device...");
     delay(100);  // optional: allow serial message to send
     ESP.restart();
   }
